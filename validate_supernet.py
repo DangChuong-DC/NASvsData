@@ -33,7 +33,7 @@ parser.add_argument('--cutout_length', type=int, default=16, help='cutout length
 parser.add_argument('--save', type=str, default='./CheckPoints/', help='experiment path')
 parser.add_argument('--load_at', type=str, default='./CheckPoints/supernet-try-20200831-191439/supernet_weights.pt', help='Checkpoint path.')
 parser.add_argument('--seed', type=int, default=0, help='random seed')
-parser.add_argument('--tmp_data_dir', type=str, default='/home/anhcda/Storage/OoD_NAS/data/', help='temp data dir')
+parser.add_argument('--tmp_data_dir', type=str, default='/home/anhcda/Storage/ANAS/data/', help='temp data dir')
 parser.add_argument('--note', type=str, default='try', help='note for this run')
 parser.add_argument('--cifar100', action='store_true', default=False, help='search with cifar100 dataset')
 parser.add_argument('--fine_tune', action='store_true', default=False, help='Specify if fine-tuning is done.')

@@ -38,7 +38,7 @@ parser.add_argument('--load_at', type=str, default='./CheckPoints/supernet-try-2
 parser.add_argument('--super_seed', type=int, default=12345, help='random seed for supernet')
 parser.add_argument('--folder', type=int, default=0, help='folder for saving')
 parser.add_argument('--ckpt_path', type=str, default='./subnet_exp1/', help='path to save subnet weights')
-parser.add_argument('--tmp_data_dir', type=str, default='/home/anhcda/Storage/OoD_NAS/data/', help='temp data dir')
+parser.add_argument('--tmp_data_dir', type=str, default='/home/anhcda/Storage/ANAS/data/', help='temp data dir')
 parser.add_argument('--is_cifar100', action='store_true', default=False, help='experiment with cifar100 dataset')
 
 args, unparsed = parser.parse_known_args()
