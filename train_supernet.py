@@ -24,7 +24,7 @@ parser.add_argument('--learning_rate_min', type=float, default=0.0, help='min le
 parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 parser.add_argument('--init_channels', type=int, default=36, help='num of init channels')
 parser.add_argument('--layers', type=int, default=14, help='total number of layers')
-parser.add_argument('--eval_time', type=int, default=5, help='repetition of running evaluation')
+parser.add_argument('--eval_time', type=int, default=1, help='repetition of running evaluation')
 parser.add_argument('--report_freq', type=float, default=100, help='report frequency')
 parser.add_argument('--gpu', type=int, default=0, help='GPU device id')
 parser.add_argument('--epochs', type=int, default=600, help='num of training epochs')
@@ -159,10 +159,13 @@ def train(train_queue, model, criterion, optimizer):
     return top1.avg, objs.avg
 
 
-def infer(valid_queue, model, criterion):
+def infer(valid_queue, model, criterion, use_fly_bn=True):
     objs = utils.AverageMeter()
     top1 = utils.AverageMeter()
-    model.eval()
+    if not use_fly_bn:
+        model.eval()
+    else:
+        model.train()
 
     for step, (input, target) in enumerate(valid_queue):
         input = input.cuda(non_blocking=True)

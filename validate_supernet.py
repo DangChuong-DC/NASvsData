@@ -30,8 +30,8 @@ parser.add_argument('--report_freq', type=float, default=100, help='report frequ
 parser.add_argument('--epochs', type=int, default=1, help='num of fine-tuning epochs')
 parser.add_argument('--cutout', action='store_true', default=False, help='use cutout')
 parser.add_argument('--cutout_length', type=int, default=16, help='cutout length')
-parser.add_argument('--save', type=str, default='./CheckPoints/', help='experiment path')
-parser.add_argument('--load_at', type=str, default='./CheckPoints/supernet-try-20200831-191439/supernet_weights.pt', help='Checkpoint path.')
+parser.add_argument('--save', type=str, default='./results/', help='experiment path')
+parser.add_argument('--load_at', type=str, default='./CheckPoints/supernet-run01-20200901-173844/supernet_weights.pt', help='Checkpoint path.')
 parser.add_argument('--seed', type=int, default=0, help='random seed')
 parser.add_argument('--tmp_data_dir', type=str, default='/home/anhcda/Storage/ANAS/data/', help='temp data dir')
 parser.add_argument('--note', type=str, default='try', help='note for this run')
@@ -94,7 +94,7 @@ def main():
 
     alphas = supernet.cells[0].ops_alphas
     print(alphas)
-    out_dir = './results/{}/eval_out/{}'.format(args.load_at.split('/')[2], args.seed)
+    out_dir = args.save + '{}/eval_out/{}'.format(args.load_at.split('/')[2], args.seed)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     torch.save(alphas, os.path.join(out_dir, 'alphas.pt'))
@@ -135,6 +135,9 @@ def main():
             whole_valid_acc, _ = infer(valid_queue, subnet, criterion)
             print('valid_acc after whole fine-tune {:.2f}'.format(whole_valid_acc))
 
+            fly_whole_valid_acc, _ = infer(valid_queue, subnet, criterion, use_fly_bn=False)
+            print('valid_acc after whole fine-tune {:.2f}'.format(fly_whole_valid_acc))
+
         # Fine-tuning only classifier:
         subnet = supernet.get_sub_net(alphas)
             # Freezing other weights except classifier:
@@ -159,8 +162,12 @@ def main():
             part_valid_acc, _ = infer(valid_queue, subnet, criterion)
             print('valid_acc after fine-tuning classifier {:.2f}'.format(part_valid_acc))
 
+            fly_part_valid_acc, _ = infer(valid_queue, subnet, criterion, use_fly_bn=False)
+            print('valid_acc after fine-tuning classifier {:.2f}'.format(fly_part_valid_acc))
+
         with open(os.path.join(out_dir, 'results.txt'), 'w') as f:
-            f.write('-'.join([str(init_valid_acc), str(whole_valid_acc), str(part_valid_acc)]))
+            f.write('-'.join([str(init_valid_acc), str(whole_valid_acc),
+                    str(fly_whole_valid_acc), str(part_valid_acc), str(fly_part_valid_acc)]))
 
     if not args.fine_tune:
         with open(os.path.join(out_dir, 'results.txt'), 'w') as f:
@@ -194,10 +201,13 @@ def train(train_queue, model, criterion, optimizer):
     return top1.avg, objs.avg
 
 
-def infer(valid_queue, model, criterion):
+def infer(valid_queue, model, criterion, use_fly_bn=True):
     objs = utils.AverageMeter()
     top1 = utils.AverageMeter()
-    model.eval()
+    if not use_fly_bn:
+        model.eval()
+    else:
+        model.train()
 
     for step, (inp, target) in enumerate(valid_queue):
         inp = inp.cuda(non_blocking=True)
