@@ -18,11 +18,7 @@ class NestDepthConv(nn.Module):
             self.C_in, self.C_in, self.kernel_size, self.stride, groups=self.C_in,
             bias=False
         )
-
-        scale_param = {}
-        param_name = 'transf_matrix'
-        scale_param[param_name] = Parameter(torch.eye(self.kernel_size**2))
-        self.register_parameter(param_name, scale_param[param_name])
+        self.transf_matrix = Parameter(torch.eye(self.kernel_size**2))
 
     def get_act_filter(self, has_residual):
         filters = self.conv.weight[:, :, :, :]
@@ -33,7 +29,7 @@ class NestDepthConv(nn.Module):
             _input_filter = _input_filter.view(_input_filter.size(0), _input_filter.size(1), -1)
             _input_filter = _input_filter.view(-1, _input_filter.size(2))
             _input_filter = F.linear(
-                _input_filter, self.__getattr__('transf_matrix')
+                _input_filter, self.transf_matrix
             )
             _input_filter = _input_filter.view(filters.size(0), filters.size(1),
                                                 self.kernel_size**2)

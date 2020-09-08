@@ -29,16 +29,16 @@ parser.add_argument('--momentum', type=float, default=0.9, help='momentum')
 parser.add_argument('--init_channels', type=int, default=36, help='num of init channels')
 parser.add_argument('--layers', type=int, default=14, help='total number of layers')
 parser.add_argument('--report_freq', type=float, default=100, help='report frequency')
-parser.add_argument('--epochs', type=int, default=50, help='num of training epochs')
+parser.add_argument('--epochs', type=int, default=90, help='num of training epochs')
 parser.add_argument('--cutout', action='store_true', default=False, help='use cutout')
 parser.add_argument('--cutout_length', type=int, default=16, help='cutout length')
 parser.add_argument('--grad_clip', type=float, default=-1, help='gradient clipping')
 parser.add_argument('--save', type=str, default='./results/', help='experiment path')
-parser.add_argument('--load_at', type=str, default='./CheckPoints/supernet-try-20200831-191439/supernet_weights.pt', help='Checkpoint path.')
+parser.add_argument('--load_at', type=str, default='./CheckPoints/supernet-run01-20200901-173844/supernet_weights.pt', help='Checkpoint path.')
 parser.add_argument('--super_seed', type=int, default=12345, help='random seed for supernet')
 parser.add_argument('--folder', type=int, default=0, help='folder for saving')
-parser.add_argument('--ckpt_path', type=str, default='./subnet_exp1/', help='path to save subnet weights')
-parser.add_argument('--tmp_data_dir', type=str, default='/home/anhcda/Storage/ANAS/data/', help='temp data dir')
+parser.add_argument('--ckpt_path', type=str, default='/groups1/gcc50495/anhcda/subnet_weights_1/', help='path to save subnet weights')
+parser.add_argument('--tmp_data_dir', type=str, default='/datasets/', help='temp data dir')
 parser.add_argument('--is_cifar100', action='store_true', default=False, help='experiment with cifar100 dataset')
 
 args, unparsed = parser.parse_known_args()
@@ -49,6 +49,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO,
 fh = logging.FileHandler(os.path.join(args.save, '{}/eval_out/{}/subnet_log.txt'.format(args.load_at.split('/')[2], args.folder)))
 fh.setFormatter(logging.Formatter(log_format))
 logging.getLogger().addHandler(fh)
+
+args.tmp_data_dir = os.environ['SGE_LOCALDIR'] + args.tmp_data_dir
 
 plot_pth = './results/{}/eval_out/{}/plot/tr/'.format(args.load_at.split('/')[2], args.folder)
 writer_tr = SummaryWriter(plot_pth, flush_secs=30)
@@ -87,10 +89,10 @@ def main():
         valid_data = dset.CIFAR10(root=args.tmp_data_dir, train=False, download=False, transform=valid_transform)
 
     train_queue = torch.utils.data.DataLoader(
-        train_data, batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers, drop_last=True)
+        train_data, batch_size=args.batch_size, shuffle=True, pin_memory=True, num_workers=args.workers)
 
     valid_queue = torch.utils.data.DataLoader(
-        valid_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, num_workers=args.workers, drop_last=True)
+        valid_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, num_workers=args.workers)
 
 
     # build Network
@@ -127,20 +129,22 @@ def main():
         train_acc, _ = train(train_queue, subnet, criterion, optimizer)
         logging.info('train_acc {:.2f}'.format(train_acc))
 
-        valid_acc, valid_loss = infer(valid_queue, subnet, criterion)
+        valid_acc, valid_loss = infer(valid_queue, subnet, criterion, use_fly_bn=False)
         writer_va.add_scalar('loss', valid_loss, global_step)
         writer_va.add_scalar('acc', valid_acc, global_step)
         logging.info('valid_acc {:.2f}'.format(valid_acc))
         scheduler.step()
 
-    if not os.path.exists(args.ckpt_path):
-        os.makedirs(args.ckpt_path)
-    utils.save(subnet, os.path.join(args.ckpt_path, 'subnet_{}_weights.pt'.format(args.folder)))
+    fly_valid_acc, _ = infer(valid_queue, subnet, criterion, use_fly_bn=True)
 
     logging.info('Writting results:')
     out_dir = './results/{}/eval_out/{}/'.format(args.load_at.split('/')[2], args.folder)
     with open(os.path.join(out_dir, 'subnet_results.txt'), 'w') as f:
-        f.write(str(valid_acc))
+        f.write('-'.join([str(valid_acc), str(fly_valid_acc)]))
+
+    if not os.path.exists(args.ckpt_path):
+        os.makedirs(args.ckpt_path)
+    utils.save(subnet, os.path.join(args.ckpt_path, 'subnet_{}_weights.pt'.format(args.folder)))
 
 
 def train(train_queue, model, criterion, optimizer):
@@ -176,10 +180,13 @@ def train(train_queue, model, criterion, optimizer):
     return top1.avg, objs.avg
 
 
-def infer(valid_queue, model, criterion):
+def infer(valid_queue, model, criterion, use_fly_bn=True):
     objs = utils.AverageMeter()
     top1 = utils.AverageMeter()
-    model.eval()
+    if not use_fly_bn:
+        model.eval()
+    else:
+        model.train()
 
     for step, (inp, target) in enumerate(valid_queue):
         inp = inp.cuda(non_blocking=True)
