@@ -54,7 +54,7 @@ class Network(nn.Module):
             c.set_edge_fixed(ops_alphas)
         return subnet
 
-    def generate_share_alphas(self):
-        ops_alp = self.cells[0].generate_rand_alphas()
+    def generate_share_alphas(self, drop_rate=0.5):
+        ops_alp = self.cells[0].generate_rand_alphas(drop_prob=drop_rate)
         for c in self.cells[1:]:
             c.ops_alphas = ops_alp.clone()

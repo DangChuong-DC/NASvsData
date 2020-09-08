@@ -107,9 +107,10 @@ class Cell(nn.ModuleList):
             states.append(s)
         return torch.cat(states[-self.multiplier:], dim=1)
 
-    def generate_rand_alphas(self, keep_prob=0.5):
+    def generate_rand_alphas(self, drop_prob=0.5):
         k = sum(1 for i in range(self.steps) for n in range(2 + i))
         num_op = len(SUPER_PRIMITIVES) if self.is_bequeath else len(CHILD_PRIMITIVES)
+        keep_prob = 1. - drop_prob
         ops_alps = torch.rand(k, num_op).bernoulli_(keep_prob)
         self.ops_alphas = ops_alps
         return self.ops_alphas
